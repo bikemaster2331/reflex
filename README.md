@@ -1,7 +1,7 @@
 # Reflex
 
 ## Description
-A real-time coding behavior analysis engine designed to detect logic flaws and structural anomalies without executing the code. Unlike traditional linters that rely on regex, or LLMs that rely on probabilistic guessing, Sasquatch uses Abstract Syntax Tree (AST) traversal to provide 100% deterministic feedback in milliseconds.
+A real-time coding behavior analysis engine designed to detect logic flaws and structural anomalies without executing the code. Unlike traditional linters that rely on regex, or LLMs that rely on probabilistic guessing, reflex uses Abstract Syntax Tree (AST) traversal to provide 100% deterministic feedback in milliseconds.
 
 ---
 
