@@ -156,13 +156,11 @@ app.post('/analyze', (req, res) => {
                 const hasExit = analysis.hasBreak || analysis.hasReturn || analysis.hasSleep;
                 
                 if (!hasExit) {
-                    diagnostics.push({
-                        type: 'observation', 
-                        message: 'Loop has no observable exit in this scope.',
-                        ghostText: '    break  # Sasquatch: Added exit to prevent freeze',
-                        line: whileLoop.startPosition.row + 1, // Suggest fix on the next line
-                        column: 4 // Indented
-                });
+                    console.log(`    ⚠️  DANGER: No exit mechanism!`);
+                    dangerousLoops.push({
+                        line: whileLoop.startPosition.row,
+                        column: whileLoop.startPosition.column
+                    });
                 } else {
                     console.log(`    ✓ Safe (has exit)`);
                 }
