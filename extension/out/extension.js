@@ -40,63 +40,169 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const axios_1 = __importDefault(require("axios"));
-let debounceTimer;
-function activate(context) {
-    console.log('REFLEX: Extension is now active!');
-    const diagnosticCollection = vscode.languages.createDiagnosticCollection('reflex');
-    vscode.workspace.onDidChangeTextDocument(async (event) => {
-        if (debounceTimer) {
-            clearTimeout(debounceTimer);
+class SasquatchSidebarProvider {
+    static viewType = 'sasquatch.monitor';
+    _view;
+    resolveWebviewView(webviewView) {
+        this._view = webviewView;
+        webviewView.webview.options = { enableScripts: true };
+        webviewView.webview.html = this._getHtmlForWebview("🧠 Sasquatch is initializing...");
+        console.log('Sasquatch sidebar view created');
+    }
+    updateMonitor(status, message, color) {
+        if (this._view) {
+            this._view.webview.html = this._getHtmlForWebview(message, status, color);
+            console.log('Monitor updated:', status);
         }
-        debounceTimer = setTimeout(async () => {
-            const document = event.document;
-            const code = document.getText();
+    }
+    _getHtmlForWebview(message, status = 'Idle', color = '#4CAF50') {
+        return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { 
+                    font-family: var(--vscode-font-family);
+                    padding: 15px; 
+                    color: var(--vscode-editor-foreground);
+                    background: var(--vscode-editor-background);
+                    margin: 0;
+                }
+                .header {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-bottom: 15px;
+                    color: var(--vscode-titleBar-activeForeground);
+                }
+                .card { 
+                    background: var(--vscode-editor-background); 
+                    border: 1px solid var(--vscode-widget-border); 
+                    padding: 15px; 
+                    border-radius: 6px; 
+                    border-left: 4px solid ${color};
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+                .status { 
+                    font-weight: bold; 
+                    color: ${color}; 
+                    margin-bottom: 10px; 
+                    display: block;
+                    font-size: 14px;
+                    letter-spacing: 0.5px;
+                }
+                .message {
+                    line-height: 1.5;
+                    margin: 0;
+                }
+                .timestamp { 
+                    font-size: 11px; 
+                    opacity: 0.6; 
+                    margin-top: 12px; 
+                    display: block;
+                    font-style: italic;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">🦍 Sasquatch Monitor</div>
+            <div class="card">
+                <span class="status">● ${status.toUpperCase()}</span>
+                <div class="message">${message}</div>
+                <span class="timestamp">Last scan: ${new Date().toLocaleTimeString()}</span>
+            </div>
+        </body>
+        </html>`;
+    }
+}
+function activate(context) {
+    console.log('🦍 Sasquatch extension activating...');
+    // Register sidebar
+    const sidebarProvider = new SasquatchSidebarProvider();
+    context.subscriptions.push(vscode.window.registerWebviewViewProvider(SasquatchSidebarProvider.viewType, sidebarProvider, { webviewOptions: { retainContextWhenHidden: true } }));
+    // Diagnostic collection for squiggly lines
+    const diagnosticCollection = vscode.languages.createDiagnosticCollection('sasquatch');
+    context.subscriptions.push(diagnosticCollection);
+    let timeout = undefined;
+    const triggerAnalysis = (document) => {
+        if (timeout) {
+            clearTimeout(timeout);
+        }
+        timeout = setTimeout(async () => {
             // Only analyze Python files
             if (document.languageId !== 'python') {
                 return;
             }
-            console.log('REFLEX: Sending code to AST brain...');
+            console.log('🧠 Analyzing:', document.fileName);
             try {
                 const response = await axios_1.default.post('http://localhost:3000/analyze', {
-                    code,
-                    fileName: document.fileName
+                    fileName: document.fileName,
+                    code: document.getText()
+                }, {
+                    timeout: 5000 // 5 second timeout
                 });
-                console.log('REFLEX: Brain responded:', response.data.status);
+                console.log('Server response:', response.data.status);
+                // Handle the response format from our optimized server
                 if (response.data.status === 'danger' && response.data.locations) {
+                    const locations = response.data.locations;
                     const diagnostics = [];
-                    // Create diagnostic for each dangerous location
-                    for (const location of response.data.locations) {
-                        const line = document.lineAt(location.line);
-                        const range = new vscode.Range(location.line, location.column, location.line, line.text.trimEnd().length);
+                    // Create diagnostics for each dangerous location
+                    locations.forEach((loc) => {
+                        const line = document.lineAt(loc.line);
+                        const range = new vscode.Range(loc.line, loc.column, loc.line, line.text.trimEnd().length);
                         const diagnostic = new vscode.Diagnostic(range, response.data.message, vscode.DiagnosticSeverity.Error);
-                        // Add tags for better UX
-                        diagnostic.source = 'REFLEX AST';
+                        diagnostic.source = 'Sasquatch';
                         diagnostic.code = 'infinite-loop';
                         diagnostics.push(diagnostic);
-                    }
+                    });
                     diagnosticCollection.set(document.uri, diagnostics);
+                    // Update sidebar with danger status
+                    const issueCount = locations.length;
+                    const firstIssue = locations[0];
+                    sidebarProvider.updateMonitor("⚠️ Threat Detected", `Found <b>${issueCount}</b> infinite loop${issueCount > 1 ? 's' : ''}.<br><br>
+                        <b>Line ${firstIssue.line + 1}:</b> ${response.data.message}`, '#FF5252');
+                    console.log(`✗ Found ${issueCount} issue(s)`);
                 }
                 else {
+                    // Code is safe
                     diagnosticCollection.clear();
+                    const perfInfo = response.data.performance;
+                    const loopCount = perfInfo?.loopsAnalyzed || 0;
+                    sidebarProvider.updateMonitor("✓ Secure", `Code structure is safe.<br><br>
+                        Analyzed ${loopCount} loop${loopCount !== 1 ? 's' : ''} in ${perfInfo?.totalMs || 0}ms.`, '#4CAF50');
+                    console.log('✓ Code is safe');
                 }
             }
             catch (error) {
-                console.error("REFLEX ERROR:", error.message);
-                // Show warning in status bar if backend is down
+                console.error('❌ Analysis error:', error.message);
                 if (error.code === 'ECONNREFUSED') {
-                    vscode.window.showWarningMessage('REFLEX: Backend server not running on port 3000');
+                    sidebarProvider.updateMonitor("⚠️ Offline", "Backend server not running.<br><br>Start server with: <code>node index.js</code>", '#FFC107');
+                    vscode.window.showErrorMessage('Sasquatch: Backend server is offline (port 3000)');
+                }
+                else if (error.code === 'ECONNABORTED') {
+                    sidebarProvider.updateMonitor("⚠️ Timeout", "Analysis took too long. The file might be very large.", '#FFC107');
+                }
+                else {
+                    sidebarProvider.updateMonitor("⚠️ Error", `Analysis failed: ${error.message}`, '#FF5252');
                 }
             }
-        }, 300);
-    });
-    // Clear diagnostics when file is closed
-    context.subscriptions.push(vscode.workspace.onDidCloseTextDocument((document) => {
-        diagnosticCollection.delete(document.uri);
-    }));
+        }, 500); // 500ms debounce
+    };
+    // Trigger on text change
+    vscode.workspace.onDidChangeTextDocument(event => {
+        triggerAnalysis(event.document);
+    }, null, context.subscriptions);
+    // Trigger on file open
+    vscode.workspace.onDidOpenTextDocument(document => {
+        triggerAnalysis(document);
+    }, null, context.subscriptions);
+    // Analyze current file on startup
+    if (vscode.window.activeTextEditor) {
+        triggerAnalysis(vscode.window.activeTextEditor.document);
+    }
+    console.log('✓ Sasquatch extension activated');
 }
 function deactivate() {
-    if (debounceTimer) {
-        clearTimeout(debounceTimer);
-    }
+    console.log('Sasquatch extension deactivated');
 }
 //# sourceMappingURL=extension.js.map

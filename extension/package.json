@@ -1,25 +1,40 @@
 {
-  "name": "extension",
-  "displayName": "extension",
+  "name": "sasquatch",
+  "displayName": "Sasquatch",
   "description": "Coding behavior analysis using AI",
   "version": "0.0.1",
+  "publisher": "tan",
   "engines": {
-    "vscode": "^1.106.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
-    "Other"
+    "Linters",
+    "Programming Languages"
   ],
   "activationEvents": [
-    "*"
+    "onLanguage:python"
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "extension.helloWorld",
-        "title": "Hello World"
-      }
-    ]
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sasquatch-sidebar",
+          "title": "Sasquatch Monitor",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "sasquatch-sidebar": [
+        {
+          "type": "webview",
+          "id": "sasquatch.monitor",
+          "name": "Live Analysis",
+          "icon": "media/icon.svg"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -32,7 +47,7 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "@types/vscode": "^1.107.0",
+    "@types/vscode": "^1.90.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "eslint": "^9.39.1",
@@ -40,6 +55,6 @@
     "typescript-eslint": "^8.48.1"
   },
   "dependencies": {
-    "axios": "^1.13.2"
+    "axios": "^1.7.9"
   }
 }
